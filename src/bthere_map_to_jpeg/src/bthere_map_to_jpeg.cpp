@@ -136,14 +136,19 @@ namespace bthere_map_to_jpeg
 
         ROS_INFO("Width: %d, Heigth: %d", occupancy_grid.info.width, occupancy_grid.info.height);
         ROS_INFO("Size of data : %ld", occupancy_grid.data.size());
+        ROS_INFO("Origin (x: %f, y: %f, z: %f)",
+            (occupancy_grid.info.width / 2) + occupancy_grid.info.origin.position.x,
+            (occupancy_grid.info.height / 2) + occupancy_grid.info.origin.position.y,
+            occupancy_grid.info.origin.position.z
+            );
 
         ROS_INFO("Converting OccupancyGrid to Mat");
         int row, col, value;
         int array_index = 0;
-        cv::Mat mapped_og(occupancy_grid.info.width, occupancy_grid.info.height, CV_8UC1);
+        cv::Mat single_channel_image(occupancy_grid.info.width, occupancy_grid.info.height, CV_8UC1);
         for(std::vector<int8_t>::const_iterator it = occupancy_grid.data.begin(); it != occupancy_grid.data.end(); ++it, array_index++) {
-            row = (int)array_index/mapped_og.cols;
-            col = array_index%mapped_og.cols;
+            row = (int)array_index/single_channel_image.cols;
+            col = array_index%single_channel_image.cols;
             if ((int)*it == -1) {
                 value = 125;
             } else if ((int)*it == 100) {
@@ -154,70 +159,79 @@ namespace bthere_map_to_jpeg
                 ROS_WARN("Unsupported value in Occupancy Grid");
                 value == 125;
             }
-            mapped_og.at<uchar>(row, col) = (uchar)value;
+            single_channel_image.at<uchar>(row, col) = (uchar)value;
         }
         ROS_INFO("Done!");
 
-        cv::Mat roi = getROI(mapped_og);
+        // cv::Mat roi = getROI(mapped_og);
 
-        ROS_INFO("Writing image to file");
-        cv::imwrite("image.jpeg", roi);
+        // ROS_INFO("Writing image to file");
+        // cv::imwrite("image.jpeg", roi);
 
-        ROS_INFO("Showing the image");
-        cv::namedWindow(OPENCV_WINDOW, cv::WINDOW_AUTOSIZE);
-        cv::imshow(OPENCV_WINDOW, roi);
-        cv::waitKey(1000);
+        // ROS_INFO("Showing the image");
+        // cv::namedWindow(OPENCV_WINDOW, cv::WINDOW_AUTOSIZE);
+        // cv::imshow(OPENCV_WINDOW, roi);
+        // cv::waitKey(1000);
 
-        #ifdef false
-        ROS_INFO("Converting OccupancyGrid to GridMap");
-        grid_map::GridMap map;
-        // if (grid_map::GridMapRosConverter::fromOccupancyGrid((nav_msgs::OccupancyGrid &)msg, "elevation", map))
-        if (grid_map::GridMapRosConverter::fromOccupancyGrid(occupancy_grid, "elevation", map))
-        {
-            ROS_INFO("Success!");
-            std::cout << "GridMap size : " << map.getSize() << std::endl;
-        }
-        else
-        {
-            ROS_WARN("Failure");
-        }
+        // #ifdef false
+        // ROS_INFO("Converting OccupancyGrid to GridMap");
+        // grid_map::GridMap map;
+        // // if (grid_map::GridMapRosConverter::fromOccupancyGrid((nav_msgs::OccupancyGrid &)msg, "elevation", map))
+        // if (grid_map::GridMapRosConverter::fromOccupancyGrid(occupancy_grid, "elevation", map))
+        // {
+        //     ROS_INFO("Success!");
+        //     std::cout << "GridMap size : " << map.getSize() << std::endl;
+        // }
+        // else
+        // {
+        //     ROS_WARN("Failure");
+        // }
 
-        ROS_INFO("Converting GridMap to Image");
-        cv::Mat single_channel_image;
-        cv::Mat image;
-        if (grid_map::GridMapCvConverter::toImage<unsigned char, 1>(map, "elevation", CV_8UC1, 100, 0, single_channel_image))
-        {
-            ROS_INFO("Success!");
-            cv::Mat roi = getROI(single_channel_image);
-            cv::cvtColor(roi, image, CV_GRAY2BGR);
-            ROS_INFO("Number of channels: %d", image.channels());
-            ROS_INFO("Columns: %d, Rows: %d", image.cols, image.rows);
-            // std::cout << "image: " << single_channel_image.row(0) << std::endl;
-        }
-        else
-        {
-            ROS_WARN("Failure");
-        }
+        // ROS_INFO("Converting GridMap to Image");
+        // cv::Mat single_channel_image;
+        // cv::Mat image;
+        // if (grid_map::GridMapCvConverter::toImage<unsigned char, 1>(map, "elevation", CV_8UC1, 100, 0, single_channel_image))
+        // {
+        //     ROS_INFO("Success!");
+        //     cv::Mat roi = getROI(single_channel_image);
+        //     cv::cvtColor(roi, image, CV_GRAY2BGR);
+        //     ROS_INFO("Number of channels: %d", image.channels());
+        //     ROS_INFO("Columns: %d, Rows: %d", image.cols, image.rows);
+        //     // std::cout << "image: " << single_channel_image.row(0) << std::endl;
+        // }
+        // else
+        // {
+        //     ROS_WARN("Failure");
+        // }
 
-        if (image.empty())
+        if (single_channel_image.empty())
         {
             ROS_WARN("Failure: image empty");
             return;
         }
         else
         {
-            // ROS_INFO("Success: image full");
+            cv::Mat image, flipped_image;
+            
+            // Get the region of interest
+            cv::Mat roi = getROI(single_channel_image);
+
+            // Convert single_channel_image to 3 channels
+            cv::cvtColor(roi, image, CV_GRAY2BGR);
+
+            // Flip image about the horizontal axis
+            cv::flip(image, flipped_image, 0);
 
             // ROS_INFO("Writing image to file");
-            cv::imwrite("image.jpeg", image);
-            image.copyTo(image_);
+            cv::imwrite("image.jpeg", flipped_image);
+            flipped_image.copyTo(image_);
 
             ROS_INFO("Showing the image");
             cv::namedWindow(OPENCV_WINDOW, cv::WINDOW_AUTOSIZE);
-            cv::imshow(OPENCV_WINDOW, image);
+            cv::imshow(OPENCV_WINDOW, flipped_image);
             cv::waitKey(1000);
         }
-        #endif
+        // #endif
     }
 
     cv::Mat MapToJpeg::getROI(cv::Mat input)
