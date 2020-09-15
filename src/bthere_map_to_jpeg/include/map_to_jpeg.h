@@ -2,6 +2,7 @@
 
 #include <ros/ros.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <tf2_ros/transform_listener.h>
 #include <opencv2/core.hpp>
 
 namespace bthere_map_to_jpeg
@@ -35,10 +36,24 @@ namespace bthere_map_to_jpeg
         // Sequence counter
         int seq_cnt_;
 
+        // Buffer & TransformListener for receiving the robot transform
+        tf2_ros::Buffer tfBuffer_;
+        tf2_ros::TransformListener *tfListener_;
+
+    public:
+    // Map origin
+        float map_origin_x;
+        float map_origin_y;
+
+        // Occupancy grid resolution
+        float og_res_;
+
+        // Region of interest
+        cv::Rect roi_;
+
         // Image to publish
         cv::Mat image_;
 
-    public:
         /**
         @brief Default constructor
         @param argc [int] Number of input arguments
@@ -53,6 +68,17 @@ namespace bthere_map_to_jpeg
         **/
         ~MapToJpeg(void);
 
+        
+
+        cv::Mat convertOccupancyGridToMat(const nav_msgs::OccupancyGrid &occupancy_grid);
+
+        /**
+        @brief Extract the region of interest from the input
+        @param input [cv::Mat] An openCV matrix representing an occupancy grid as an image
+        @return [cv::Rect] An openCV Rect that specifies the region of interest
+        **/ 
+        cv::Rect getROI(cv::Mat input);
+
     private:
         /**
         @brief Callback for the subscriber
@@ -61,6 +87,8 @@ namespace bthere_map_to_jpeg
         **/
         void callback(const nav_msgs::OccupancyGrid& msg);
 
-        cv::Mat getROI(cv::Mat input);
+        static void processOccupancyGrid(MapToJpeg* instance, const nav_msgs::OccupancyGrid &grid);
+
+        cv::Mat overlayRobotLocation(cv::Mat input, cv::Rect roi = cv::Rect());
     };
 } // namespace bthere_map_to_jpeg
